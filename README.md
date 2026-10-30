@@ -9,6 +9,8 @@ http://wilsonvuproject.xyz/
 
 COLORS is a small web application built on a LAMP stack. A user logs in with a username and password, then can add colors to their personal list and search that list by name. Each user sees only the colors they have added.
 
+## Recently added UML diagrams
+  Found under docs/uml
 ## Technologies Used
 
 - **Linux**: host operating system for the server
