@@ -1,0 +1,229 @@
+@startuml class-diagram
+' ============================================================================
+' COLORS Web Application - Class Diagram
+' Repository: WilsonVu/ColorsLab
+' The code is procedural (HTML pages, one JavaScript file, three PHP scripts
+' and two MySQL tables), so it is modelled with the usual web-application
+' stereotypes: <<client page>>, <<script library>>, <<server page>>, plus
+' <<JSON>> message types and <<table>> entities. Every member exists in the
+' source code or in the README schema.
+' Render with PlantUML (VS Code or IntelliJ PlantUML plugin, or
+' https://www.plantuml.com/plantuml).
+' ============================================================================
+
+set namespaceSeparator none
+hide circle
+hide empty members
+
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam defaultFontSize 12
+skinparam titleFontSize 20
+skinparam titleFontStyle bold
+skinparam ArrowColor #334155
+skinparam ArrowFontColor #64748B
+skinparam ArrowFontSize 11
+skinparam nodesep 50
+skinparam ranksep 70
+' Uncomment to use the same font as the SVG/PDF versions (if Inter is installed):
+' skinparam defaultFontName Inter
+
+skinparam class {
+  BorderColor #475569
+  FontStyle bold
+  StereotypeFontColor #64748B
+  StereotypeFontSize 11
+}
+skinparam package {
+  BorderColor #94A3B8
+  FontStyle bold
+}
+skinparam note {
+  BackgroundColor #FEFCE8
+  BorderColor #CA8A04
+  FontSize 11
+}
+
+title COLORS Web Application - Class Diagram
+caption Pages, scripts, PHP endpoints, JSON messages and tables from public/, api/ and the README schema
+
+' ================================================================ public/ ===
+package "public/  (served by Apache, runs in the browser)" #F8FBFF {
+
+  class "md5.js" as Md5Js <<script library>> #EFF6FF {
+    + md5(string, key, raw): string
+  }
+
+  class "index.html" as IndexHtml <<client page>> #EFF6FF {
+    loginName: input [text]
+    loginPassword: input [password]
+    {field} loginButton: button {onclick = doLogin()}
+    loginResult: span
+  }
+
+  class "code.js" as CodeJs <<script library>> #EFF6FF {
+    + urlBase: string = "http:~//wilsonvuproject.xyz/LAMPAPI" {readOnly}
+    + extension: string = "php" {readOnly}
+    + userId: int = 0
+    + firstName: string = ~""
+    + lastName: string = ~""
+    + doLogin()
+    + saveCookie()
+    + readCookie()
+    + doLogout()
+    + addColor()
+    + searchColor()
+  }
+
+  class "color.html" as ColorHtml <<client page>> #EFF6FF {
+    userName: span
+    {field} logoutButton: button {onclick = doLogout()}
+    searchText: input [text]
+    {field} searchColorButton: button {onclick = searchColor()}
+    colorSearchResult: span
+    colorList: p
+    colorText: input [text]
+    {field} addColorButton: button {onclick = addColor()}
+    colorAddResult: span
+  }
+}
+
+' =================================================================== api/ ===
+package "api/  (PHP endpoints, deployed as /LAMPAPI)" #FCFBFF {
+
+  class "Login.php" as LoginPhp <<server page>> #F5F3FF {
+    - inData: array
+    - id: int = 0
+    - firstName: string = ~""
+    - lastName: string = ~""
+    - conn: mysqli
+    + POST(body: LoginRequest): LoginResponse
+    - getRequestInfo(): array
+    - sendResultInfoAsJson(obj: string)
+    - returnWithError(err: string)
+    - returnWithInfo(firstName: string, lastName: string, id: int)
+  }
+
+  class "AddColor.php" as AddColorPhp <<server page>> #F5F3FF {
+    - inData: array
+    - color: string
+    - userId: int
+    - conn: mysqli
+    + POST(body: AddColorRequest): AddColorResponse
+    - getRequestInfo(): array
+    - sendResultInfoAsJson(obj: string)
+    - returnWithError(err: string)
+  }
+
+  class "SearchColors.php" as SearchColorsPhp <<server page>> #F5F3FF {
+    - inData: array
+    - searchResults: string = ~""
+    - searchCount: int = 0
+    - conn: mysqli
+    + POST(body: SearchColorsRequest): SearchColorsResponse
+    - getRequestInfo(): array
+    - sendResultInfoAsJson(obj: string)
+    - returnWithError(err: string)
+    - returnWithInfo(searchResults: string)
+  }
+
+  class LoginRequest <<JSON>> #FFFBEB {
+    login: string
+    password: string
+  }
+  class LoginResponse <<JSON>> #FFFBEB {
+    id: int
+    firstName: string
+    lastName: string
+    error: string
+  }
+  class AddColorRequest <<JSON>> #FFFBEB {
+    color: string
+    userId: int
+  }
+  class AddColorResponse <<JSON>> #FFFBEB {
+    error: string
+  }
+  class SearchColorsRequest <<JSON>> #FFFBEB {
+    search: string
+    userId: int
+  }
+  class SearchColorsResponse <<JSON>> #FFFBEB {
+    results: string [0..*]
+    error: string
+  }
+}
+
+' ================================================================== MySQL ===
+package "MySQL  (database COP4331)" #F7FEFB {
+
+  class Users <<table>> #ECFDF5 {
+    ID: INT {PK, auto increment}
+    {field} firstName: VARCHAR(50)
+    {field} lastName: VARCHAR(50)
+    {field} Login: VARCHAR(50)
+    {field} Password: VARCHAR(50) {plain text}
+  }
+
+  class Colors <<table>> #ECFDF5 {
+    ID: INT {PK, auto increment}
+    {field} Name: VARCHAR(50)
+    UserID: INT {holds Users.ID}
+  }
+}
+
+' ========================================================= relationships ===
+' Same-rank links (one dot) keep the four browser files on one row:
+' md5.js | index.html | code.js | color.html
+Md5Js <. IndexHtml : <<include>>
+IndexHtml .> CodeJs : <<include>>
+IndexHtml <. CodeJs : <<redirect>>\nlog-out or no session
+CodeJs <. ColorHtml : <<include>>
+CodeJs .> ColorHtml : <<redirect>>\nafter log-in
+
+CodeJs ..> LoginPhp : <<XHR POST>>\ndoLogin()
+CodeJs ..> AddColorPhp : <<XHR POST>>\naddColor()
+CodeJs ..> SearchColorsPhp : <<XHR POST>>\nsearchColor()
+
+LoginPhp ..> LoginRequest : <<reads>>
+LoginPhp ..> LoginResponse : <<returns>>
+AddColorPhp ..> AddColorRequest : <<reads>>
+AddColorPhp ..> AddColorResponse : <<returns>>
+SearchColorsPhp ..> SearchColorsRequest : <<reads>>
+SearchColorsPhp ..> SearchColorsResponse : <<returns>>
+
+LoginPhp ...> Users : <<SELECT>>\nby Login and Password
+AddColorPhp ...> Colors : <<INSERT>>
+SearchColorsPhp ...> Colors : <<SELECT>>\nName LIKE %search%
+
+Users "1" - "0..*" Colors : owns >
+
+' ================================================================== notes ===
+note left of Md5Js
+Never called: the md5() line in
+doLogin() is commented out, so the
+password is sent as plain text.
+end note
+
+note right of ColorHtml
+Its inline script calls readCookie()
+when the page fires DOMContentLoaded.
+end note
+
+note right of SearchColorsResponse
+No match: the reply is {id: 0,
+firstName: ~"", lastName: ~"",
+error: "No Records Found"}
+with no results.
+end note
+
+legend right
+|= Colour |= Element |
+|<#EFF6FF>        | public/ page or script |
+|<#F5F3FF>        | api/ PHP endpoint |
+|<#FFFBEB>        | JSON request or reply body |
+|<#ECFDF5>        | MySQL table |
++ public, - private (script scope)
+endlegend
+
+@enduml

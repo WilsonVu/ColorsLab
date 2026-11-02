@@ -1,0 +1,134 @@
+@startuml activity-diagram
+' ============================================================================
+' COLORS Web Application - Activity Diagram
+' Repository: WilsonVu/ColorsLab
+' Swimlanes show where each step runs: the person, the browser (HTML pages and
+' js/code.js), the PHP endpoints in api/, and the MySQL database.
+' Render with PlantUML (VS Code or IntelliJ PlantUML plugin, or
+' https://www.plantuml.com/plantuml).
+' Action colours follow the lanes: blue = Browser, violet = PHP API,
+' green = MySQL (the same colours as the SVG/PDF versions).
+' ============================================================================
+
+skinparam shadowing false
+skinparam defaultFontSize 12
+skinparam titleFontSize 20
+skinparam titleFontStyle bold
+skinparam ArrowColor #334155
+skinparam ArrowFontColor #64748B
+skinparam ArrowFontSize 11
+' Uncomment to use the same font as the SVG/PDF versions (if Inter is installed):
+' skinparam defaultFontName Inter
+
+skinparam activity {
+  BackgroundColor #FFFFFF
+  BorderColor #64748B
+  StartColor #1E293B
+  EndColor #1E293B
+  DiamondBackgroundColor #FFFFFF
+  DiamondBorderColor #1E293B
+}
+skinparam swimlane {
+  BorderColor #94A3B8
+  TitleFontStyle bold
+  TitleFontSize 14
+}
+skinparam note {
+  BackgroundColor #FEFCE8
+  BorderColor #CA8A04
+  FontSize 11
+}
+
+title COLORS Web Application - Activity Diagram
+caption Log in, search and add colors, log out. Derived from public/*.html, public/js/code.js and api/*.php
+
+' ================================================================ LOG IN ===
+|User|
+start
+:Open the COLORS website;
+|Browser|
+#EFF6FF:Load **index.html** and show the log-in form;
+|User|
+repeat
+  :Type username and password,\nthen click **Do It**;
+  |Browser|
+  #EFF6FF:**doLogin()**: POST {login, password}\nto Login.php;
+  note right
+Every call in code.js is an asynchronous
+XMLHttpRequest POST with a JSON body. The
+page reacts only when the reply has status 200.
+  end note
+  |PHP API|
+  #F5F3FF:**Login.php**: decode the JSON body,\nrun a prepared SELECT;
+  note right
+Every PHP script opens its own mysqli
+connection to MySQL on localhost. If that
+fails, it replies with the error message.
+  end note
+  |MySQL|
+  #ECFDF5:SELECT ID, firstName, lastName\nFROM Users WHERE Login = ?\nAND Password = ?;
+  |PHP API|
+  #F5F3FF:Reply {id, firstName, lastName, error}\nid = 0 if no row matches;
+  |Browser|
+  if (id < 1?) then (yes)
+    #EFF6FF:Show "User/Password\ncombination incorrect";
+  else (no)
+    #EFF6FF:**saveCookie()**: firstName, lastName,\nuserId, cookie expires in 20 min;
+    #EFF6FF:Go to **color.html**, on page load\nit calls **readCookie()**;
+    if (userId found in cookie?) then (yes)
+    else (no)
+      #EFF6FF:Redirect to **index.html**;
+    endif
+  endif
+repeat while (logged in with a session?) is (no)
+->yes;
+
+' =========================================================== COLORS PAGE ===
+|User|
+repeat
+  :Type a color or search text, then\nclick **Search Color**, **Add Color** or **Log Out**;
+  if (Search Color clicked?) then (yes)
+    ' ------------------------------------------------------------ search ---
+    |Browser|
+    #EFF6FF:**searchColor()**: POST {search, userId}\nto SearchColors.php;
+    |PHP API|
+    #F5F3FF:**SearchColors.php**: build the\npattern "%" + search + "%";
+    |MySQL|
+    #ECFDF5:SELECT Name FROM Colors\nWHERE Name LIKE ?\nAND UserID = ?;
+    |PHP API|
+    #F5F3FF:Reply {results: [names], error: ~""}\nif none: error "No Records Found"\nand no results array;
+    note right
+No match: the reply has no results array,
+so searchColor() stops at results.length
+and the old list stays on screen.
+    end note
+    |Browser|
+    if (results in reply?) then (yes)
+      #EFF6FF:Show the matching names\nin #colorList, one per line;
+    else (no)
+      #EFF6FF:Leave #colorList unchanged\n(old results stay on screen);
+    endif
+  elseif (Add Color clicked?) then (yes)
+    ' --------------------------------------------------------------- add ---
+    |Browser|
+    #EFF6FF:**addColor()**: POST {color, userId}\nto AddColor.php;
+    |PHP API|
+    #F5F3FF:**AddColor.php**: decode the JSON body,\nrun a prepared INSERT;
+    |MySQL|
+    #ECFDF5:INSERT INTO Colors\n(UserId, Name) VALUES (?, ?);
+    |PHP API|
+    #F5F3FF:Reply {error: ~""};
+    |Browser|
+    #EFF6FF:Show "Color has been added"\n(the error field is not checked);
+  else (Log Out clicked)
+  endif
+repeat while (Log Out clicked?) is (no)
+->yes;
+
+' =============================================================== LOG OUT ===
+|Browser|
+#EFF6FF:**doLogout()**: reset userId and names,\nexpire the cookie;
+#EFF6FF:Redirect to **index.html**;
+stop
+
+@enduml

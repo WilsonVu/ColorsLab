@@ -1,0 +1,102 @@
+@startuml use-case-diagram
+' ============================================================================
+' COLORS Web Application - Use Case Diagram
+' Repository: WilsonVu/ColorsLab
+' Derived from public/index.html, public/color.html, public/js/code.js and
+' api/*.php. Render with PlantUML (VS Code or IntelliJ PlantUML plugin, or
+' https://www.plantuml.com/plantuml).
+' ============================================================================
+
+left to right direction
+
+skinparam shadowing false
+skinparam defaultFontSize 13
+skinparam titleFontSize 20
+skinparam titleFontStyle bold
+skinparam ArrowColor #334155
+skinparam ArrowFontColor #64748B
+skinparam ArrowFontSize 11
+' Uncomment to use the same font as the SVG/PDF versions (if Inter is installed):
+' skinparam defaultFontName Inter
+
+skinparam actor {
+  BorderColor #1E293B
+  BackgroundColor #FFFFFF
+}
+skinparam usecase {
+  BackgroundColor #F1F5F9
+  BorderColor #475569
+}
+skinparam rectangle {
+  BackgroundColor #FBFDFF
+  BorderColor #94A3B8
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor #ECFDF5
+  BorderColor #10B981
+}
+skinparam note {
+  BackgroundColor #FEFCE8
+  BorderColor #CA8A04
+  FontSize 11
+}
+
+title COLORS Web Application - Use Case Diagram
+caption Derived from public/index.html, public/color.html, public/js/code.js and api/*.php
+
+' ---------------------------------------------------------------- actors ---
+actor "User" as User
+database "MySQL Database\nCOP4331: Users, Colors" as DB <<actor>>
+
+' ------------------------------------------------------- system boundary ---
+rectangle "COLORS Web Application" {
+  usecase UC_Login as "Log In
+--
+extension points
+invalid credentials"
+  usecase "Verify Credentials" as UC_Verify
+  usecase "Show Login Error" as UC_Error
+  usecase "Search Colors" as UC_Search
+  usecase "Validate Session" as UC_Session
+  usecase "Add Color" as UC_Add
+  usecase "Log Out" as UC_Logout
+}
+
+' ---------------------------------------------- primary actor: the User ---
+User -- UC_Login
+User -- UC_Search
+User -- UC_Add
+User -- UC_Logout
+
+' ----------------------------------------------------- include / extend ---
+UC_Login ..> UC_Verify : <<include>>
+UC_Login <.. UC_Error : <<extend>>\n[no matching user]
+UC_Search ..> UC_Session : <<include>>
+UC_Add ..> UC_Session : <<include>>
+
+' ----------------------------------- secondary actor: the MySQL database ---
+UC_Verify -- DB
+UC_Search -- DB
+UC_Add -- DB
+
+' ----------------------------------------------------------------- notes ---
+note right of UC_Session
+A session is the cookie saved at log-in
+(firstName, lastName, userId). It expires
+after 20 minutes. color.html calls readCookie()
+when it loads and sends the user back to the
+log-in page if no userId is found.
+end note
+
+note as N_Scope
+<b>Scope of the system (README)</b>
+No sign-up: accounts are added to the
+Users table directly in MySQL.
+Colors can be added and searched,
+but not edited or deleted.
+Each user only sees the colors they added.
+end note
+DB -[hidden]- N_Scope
+
+@enduml
