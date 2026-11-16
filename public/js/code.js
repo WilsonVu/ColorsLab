@@ -6,6 +6,82 @@ let userId = 0;
 let firstName = "";
 let lastName = "";
 
+// Matches the VARCHAR(50) Name column in the Colors table.
+const MAX_COLOR_LENGTH = 50;
+
+// Checks a color typed by the user before it is sent to AddColor.php.
+// Returns { valid, color, error }, where color is the trimmed input.
+function validateColor(input)
+{
+	let color = (typeof input === "string") ? input.trim() : "";
+
+	if( color.length === 0 )
+	{
+		return { valid: false, color: color, error: "Please enter a color" };
+	}
+
+	if( color.length > MAX_COLOR_LENGTH )
+	{
+		return { valid: false, color: color, error: "Color name must be " + MAX_COLOR_LENGTH + " characters or less" };
+	}
+
+	return { valid: true, color: color, error: "" };
+}
+
+// Makes text safe to put into innerHTML, so a color named "<b>Red</b>"
+// shows up as that text instead of being treated as HTML.
+function escapeHtml(text)
+{
+	return String(text)
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#39;");
+}
+
+// Turns the results array from SearchColors.php into HTML, one color per line.
+// SearchColors.php leaves out "results" when nothing matches, so anything
+// that is not an array becomes an empty list.
+function formatColorList(results)
+{
+	if( !Array.isArray(results) )
+	{
+		return "";
+	}
+
+	return results.map(escapeHtml).join("<br />\r\n");
+}
+
+// Reads the login cookie written by saveCookie(), which looks like
+// "firstName=Test,lastName=User,userId=1". userId is -1 when there is no
+// valid login. Other cookies (separated by ";") are ignored.
+function parseCookie(cookieString)
+{
+	let user = { firstName: "", lastName: "", userId: -1 };
+	let splits = (cookieString || "").split(/[,;]/);
+
+	for( let i = 0; i < splits.length; i++ )
+	{
+		let tokens = splits[i].trim().split("=");
+		if( tokens[0] == "firstName" )
+		{
+			user.firstName = tokens[1];
+		}
+		else if( tokens[0] == "lastName" )
+		{
+			user.lastName = tokens[1];
+		}
+		else if( tokens[0] == "userId" )
+		{
+			let id = parseInt( tokens[1], 10 );
+			user.userId = isNaN(id) ? -1 : id;
+		}
+	}
+
+	return user;
+}
+
 function doLogin()
 {
 	userId = 0;
@@ -69,27 +145,11 @@ function saveCookie()
 
 function readCookie()
 {
-	userId = -1;
-	let data = document.cookie;
-	let splits = data.split(",");
-	for(var i = 0; i < splits.length; i++) 
-	{
-		let thisOne = splits[i].trim();
-		let tokens = thisOne.split("=");
-		if( tokens[0] == "firstName" )
-		{
-			firstName = tokens[1];
-		}
-		else if( tokens[0] == "lastName" )
-		{
-			lastName = tokens[1];
-		}
-		else if( tokens[0] == "userId" )
-		{
-			userId = parseInt( tokens[1].trim() );
-		}
-	}
-	
+	let user = parseCookie( document.cookie );
+	userId = user.userId;
+	firstName = user.firstName;
+	lastName = user.lastName;
+
 	if( userId < 0 )
 	{
 		window.location.href = "index.html";
@@ -111,10 +171,16 @@ function doLogout()
 
 function addColor()
 {
-	let newColor = document.getElementById("colorText").value;
 	document.getElementById("colorAddResult").innerHTML = "";
 
-	let tmp = {color:newColor,userId: userId};
+	let check = validateColor( document.getElementById("colorText").value );
+	if( !check.valid )
+	{
+		document.getElementById("colorAddResult").innerHTML = check.error;
+		return;
+	}
+
+	let tmp = {color:check.color,userId: userId};
 	let jsonPayload = JSON.stringify( tmp );
 
 	let url = urlBase + '/AddColor.' + extension;
@@ -144,8 +210,6 @@ function searchColor()
 {
 	let srch = document.getElementById("searchText").value;
 	document.getElementById("colorSearchResult").innerHTML = "";
-	
-	let colorList = "";
 
 	let tmp = {search:srch,userId:userId};
 	let jsonPayload = JSON.stringify( tmp );
@@ -161,19 +225,17 @@ function searchColor()
 		{
 			if (this.readyState == 4 && this.status == 200) 
 			{
-				document.getElementById("colorSearchResult").innerHTML = "Color(s) has been retrieved";
 				let jsonObject = JSON.parse( xhr.responseText );
-				
-				for( let i=0; i<jsonObject.results.length; i++ )
+
+				if( jsonObject.error )
 				{
-					colorList += jsonObject.results[i];
-					if( i < jsonObject.results.length - 1 )
-					{
-						colorList += "<br />\r\n";
-					}
+					document.getElementById("colorSearchResult").textContent = jsonObject.error;
+					document.getElementsByTagName("p")[0].innerHTML = "";
+					return;
 				}
-				
-				document.getElementsByTagName("p")[0].innerHTML = colorList;
+
+				document.getElementById("colorSearchResult").innerHTML = "Color(s) has been retrieved";
+				document.getElementsByTagName("p")[0].innerHTML = formatColorList( jsonObject.results );
 			}
 		};
 		xhr.send(jsonPayload);
@@ -182,5 +244,12 @@ function searchColor()
 	{
 		document.getElementById("colorSearchResult").innerHTML = err.message;
 	}
-	
+
+}
+
+// Lets Jest load these functions with require(). Browsers skip this block
+// because `module` only exists in Node.
+if( typeof module !== "undefined" && module.exports )
+{
+	module.exports = { MAX_COLOR_LENGTH, validateColor, escapeHtml, formatColorList, parseCookie };
 }
