@@ -112,9 +112,11 @@ describe("AddColor.php and SearchColors.php", () => {
 
     expect(status).toBe(200);
     expect(contentType).toMatch(/application\/json/);
-    expect(json.error).toBe("");
-    expect(Array.isArray(json.results)).toBe(true);
-    expect(json.results).toContain(color);
+    // Compare the whole object so a failure prints a diff of the JSON keys.
+    expect(json).toEqual({
+      results: expect.arrayContaining([color]),
+      error: "",
+    });
   });
 
   test("SearchColors.php returns an error and no results when nothing matches", async () => {
