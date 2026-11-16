@@ -1,4 +1,4 @@
-name: Lint
+name: CI
 
 on:
   push:
@@ -30,3 +30,74 @@ jobs:
       - name: Lint JavaScript
         if: success() || failure()
         run: npm run lint:js
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run front-end unit tests
+        run: npm run test:unit
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    env:
+      API_URL: http://127.0.0.1:8000
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mysqli
+          coverage: none
+
+      # The runner comes with MySQL installed (root password "root").
+      # It is used instead of a MySQL service container because the PHP
+      # files connect to "localhost", which mysqli treats as a Unix socket.
+      - name: Start MySQL and load the test database
+        run: |
+          sudo systemctl start mysql.service
+          mysql -uroot -proot < tests/integration/setup.sql
+
+      - name: Start the PHP API server
+        run: |
+          php -S 127.0.0.1:8000 -t api > php-server.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl -s -o /dev/null "$API_URL/"; then
+              echo "PHP server is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "PHP server did not start"
+          cat php-server.log
+          exit 1
+
+      - name: Run API integration tests
+        run: npm run test:integration
+
+      - name: Show PHP server log
+        if: failure()
+        run: cat php-server.log
