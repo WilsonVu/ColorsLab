@@ -9,7 +9,7 @@
   "scripts": {
     "lint:html": "htmlhint \"public/**/*.html\"",
     "lint:css": "stylelint \"public/css/**/*.css\"",
-    "lint:js": "eslint public/js",
+    "lint:js": "eslint public/js tests",
     "lint": "npm run lint:html && npm run lint:css && npm run lint:js",
     "test:unit": "jest tests/unit",
     "test:integration": "jest tests/integration --runInBand",

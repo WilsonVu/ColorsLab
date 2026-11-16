@@ -11,7 +11,19 @@ export default [
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "script",
-      globals: { ...globals.browser }
+      globals: {
+        ...globals.browser,
+        // code.js exports its helpers to Jest only when `module` exists
+        module: "readonly"
+      }
+    }
+  },
+  {
+    files: ["tests/**/*.js"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "commonjs",
+      globals: { ...globals.node, ...globals.jest }
     }
   }
 ];
